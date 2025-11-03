@@ -1,24 +1,28 @@
 {
-  "name": "crm_dnp_automation_api",
+  "name": "crm_dnp_node",
   "version": "1.0.0",
+  "description": "CRM DNP Automation API - run lead automation scripts via HTTP requests",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "dependencies": {
     "axios": "^1.6.8",
     "express": "^4.21.2"
   },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/NotToday0007/CRM_DNP_node.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["crm", "automation", "node", "n8n"],
+  "author": "Rifat",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/NotToday0007/CRM_DNP_node/issues"
   },
-  "homepage": "https://github.com/NotToday0007/CRM_DNP_node#readme",
-  "description": ""
+  "homepage": "https://github.com/NotToday0007/CRM_DNP_node#readme"
 }
