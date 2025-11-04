@@ -1,37 +1,81 @@
+// ==============================
+// 📦 IMPORTS (ESM Style)
+// ==============================
+import { execSync } from "child_process";
 import express from "express";
-import { exec } from "child_process";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Required for ES modules
+// ==============================
+// ⚙️ ESM Helpers
+// ==============================
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ==============================
+// 🚀 EXPRESS APP SETUP
+// ==============================
+const app = express();
 app.use(express.json());
 
-// Route to trigger script
+// ==============================
+// 📂 Ensure lead_data.json exists
+// ==============================
+const leadDataPath = path.join(__dirname, "lead_data.json");
+if (!fs.existsSync(leadDataPath)) {
+  fs.writeFileSync(leadDataPath, JSON.stringify({}, null, 2));
+  console.log("📁 lead_data.json created");
+}
+
+// ==============================
+// 🏠 Homepage
+// ==============================
+app.get("/", (req, res) => {
+  res.send("🚀 CRM DNP Automation Server: POST /run { file: 'day1_createLead.js' }");
+});
+
+// ==============================
+// ✅ Allowed Scripts
+// ==============================
+const ALLOWED = [
+  "day1_createLead.js",
+  "day2_3_checkLead.js",
+  "day4_verifyLead.js"
+];
+
+// ==============================
+// ⚙️ Run Script Endpoint
+// ==============================
 app.post("/run", (req, res) => {
   const { file } = req.body;
-  const filePath = path.join(__dirname, file);
 
-  console.log(`🚀 CRM DNP Automation Server: POST /run { file: '${file}' }`);
+  if (!file) {
+    return res.status(400).json({ error: "Missing 'file' in body." });
+  }
 
-  exec(`node ${filePath}`, (error, stdout, stderr) => {
-    if (error) {
-      console.error(`❌ Error: ${error.message}`);
-      return res.status(500).json({ error: error.message });
-    }
-    if (stderr) {
-      console.error(`⚠️ Stderr: ${stderr}`);
-    }
-    console.log(`✅ Script Output:\n${stdout}`);
-    res.json({ message: "Script executed successfully", output: stdout });
-  });
+  if (!ALLOWED.includes(file)) {
+    return res.status(400).json({ error: "File not allowed." });
+  }
+
+  const scriptPath = path.join(__dirname, file);
+
+  try {
+    console.log(`🧩 Running script: ${scriptPath}`);
+    execSync(`node "${scriptPath}"`, { stdio: "inherit" });
+    res.json({ success: true, message: `✅ Successfully ran ${file}` });
+  } catch (err) {
+    console.error("❌ Script error:", err);
+    res.status(500).json({
+      success: false,
+      message: `❌ Failed to run ${file}`,
+      error: err.message,
+    });
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-});
+// ==============================
+// 🖥️ START SERVER
+// ==============================
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`⚡ Script Runner Active on port ${PORT}`));
