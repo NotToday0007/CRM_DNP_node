@@ -38,7 +38,8 @@ app.get("/", (req, res) => {
 const ALLOWED = [
   "day1_createLead.js",
   "day2_3_checkLead.js",
-  "day4_verifyLead.js"
+  "day4_verifyLead.js",
+  "RTP_automation.js"
 ];
 
 // ==============================
