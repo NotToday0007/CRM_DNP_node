@@ -3,10 +3,9 @@ import axios from "axios";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// Recreate __dirname and __filename (not built-in in ESM)
+// recreate dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 
 // ==============================
 // 🔐 CONFIG
@@ -21,8 +20,12 @@ const leadFilePath = path.join(__dirname, "lead_data.json");
 // 🧠 HELPERS
 // ==============================
 function generateLogRefId() {
-  const timestamp = Date.now();
-  return `crm-web-${USER_ID}-${timestamp}`;
+  return `crm-web-${USER_ID}-${Date.now()}`;
+}
+
+function formatDateTime(dt) {
+  const date = new Date(dt);
+  return date.toLocaleString("en-BD", { hour12: true }).replace(",", "");
 }
 
 // ==============================
@@ -30,15 +33,15 @@ function generateLogRefId() {
 // ==============================
 async function main() {
   try {
-    // 1️⃣ READ LEAD DATA FROM JSON
+    // 1️⃣ READ LEAD DATA
     if (!fs.existsSync(leadFilePath)) {
       throw new Error("Lead JSON file not found. Run the first script first.");
     }
-    const leadData = JSON.parse(fs.readFileSync(leadFilePath, "utf-8"));
-    const { leadId, name } = leadData;
-    console.log(`🔑 Checking DNP automation for lead: ${name} (ID: ${leadId})\n`);
 
-    // 2️⃣ LOGIN
+    const leadData = JSON.parse(fs.readFileSync(leadFilePath, "utf-8"));
+    const { leadId, name, mobile, expectedCallingAt } = leadData;
+
+    // 2️⃣ LOGIN TO CRM
     const loginRes = await axios.post(
       `${BASE_URL}/auth/login`,
       new URLSearchParams({ username: USERNAME, password: PASSWORD }),
@@ -49,6 +52,7 @@ async function main() {
         },
       }
     );
+
     const token = loginRes.data?.access_token;
     if (!token) throw new Error("Login failed — no token found!");
 
@@ -57,68 +61,107 @@ async function main() {
       "X-Log-Ref-Id": generateLogRefId(),
     };
 
-    // 3️⃣ GET ALL LOGS FOR THIS LEAD
+    // 3️⃣ FETCH LOGS
     const logsRes = await axios.get(
       `${BASE_URL}/logs?cols=*&search=table_id:${leadId};table_name:Lead&conditions=table_id:=;table_name:=&join=and&page=1&orderBy=created_at&sortedBy=desc`,
       { headers }
     );
 
     const logs = logsRes.data?.data || [];
-
-    if (!logs.length) {
-      console.log("ℹ️ No logs found for this lead.");
-      return;
-    }
-
-    // 4️⃣ COLLECT ALL lead_update_history_id VALUES
     const leadUpdateHistoryIds = [];
 
     for (const log of logs) {
-      if (!log.details || !log.details.length) continue;
-
+      if (!log.details) continue;
       for (const detail of log.details) {
         if (detail.label === "lead_update_history_id" && detail.new_value) {
           leadUpdateHistoryIds.push(detail.new_value);
-          console.log(`🧩 Found lead_update_history_id: ${detail.new_value}`);
         }
       }
     }
 
-    if (leadUpdateHistoryIds.length === 0) {
-      console.log("⚠️ No lead_update_history_id entries found in logs.");
-      return;
-    }
-
-    console.log("\n🧾 Lead Update History IDs collected:");
-    console.log(leadUpdateHistoryIds.join(", "));
-    console.log("\n🔍 Now checking each ID for DNPAutomation...\n");
-
-    // 5️⃣ CHECK EACH LOG DETAIL FOR DNPAutomation
-    let foundAny = false;
-
+    // 4️⃣ CHECK DNPAutomation
+    let found = false;
     for (const logId of leadUpdateHistoryIds) {
       try {
-        const logDetailsRes = await axios.get(`${BASE_URL}/logs/lead_update_history_id/${logId}`, { headers });
+        const logDetailsRes = await axios.get(
+          `${BASE_URL}/logs/lead_update_history_id/${logId}`,
+          { headers }
+        );
         const logDetails = logDetailsRes.data;
 
         if (logDetails?.name === "DNPAutomation") {
-          console.log(`✅ DNPAutomation found for log ID ${logId}`);
-          foundAny = true;
-        } else {
-          console.log(`ℹ️ DNPAutomation not found for log ID ${logId}`);
+          found = true;
+          break;
         }
-      } catch (err) {
-        console.warn(`⚠️ Could not fetch log details for ID ${logId}:`, err.response?.data || err.message);
-      }
+      } catch {}
     }
 
-    if (!foundAny) {
-      console.log("\nℹ️ No DNPAutomation logs found for this lead.");
-    }
+    // 5️⃣ BUILD HTML EMAIL BODY
+    const dnpStatus = found ? "Found ✅" : "Not Found ❌";
+    const expectedTime = expectedCallingAt
+      ? formatDateTime(expectedCallingAt)
+      : "N/A";
+    const executedAt = formatDateTime(new Date());
 
-    console.log("\n🎉 DNP Automation check completed!");
+    const emailBody = `
+<div style="font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7fa; padding: 30px 0; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.05); overflow: hidden;">
+    
+    <div style="background: linear-gradient(90deg, #2b6cb0, #3182ce); padding: 18px 0; text-align: center; color: white;">
+      <h2 style="margin: 0; font-size: 20px; letter-spacing: 0.5px;">💼 DNP Automation Report</h2>
+    </div>
+
+    <div style="padding: 20px 30px;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 15px;">
+        <tr>
+          <td style="padding: 8px 0; width: 45%; color: #4a5568;"><strong>Lead ID:</strong></td>
+          <td style="padding: 8px 0; color: #2d3748;">${leadId}</td>
+        </tr>
+        <tr style="background-color: #f9fafc;">
+          <td style="padding: 8px 0; color: #4a5568;"><strong>Name:</strong></td>
+          <td style="padding: 8px 0; color: #2d3748;">${name}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #4a5568;"><strong>Mobile:</strong></td>
+          <td style="padding: 8px 0; color: #2d3748;">${mobile}</td>
+        </tr>
+        <tr style="background-color: #f9fafc;">
+          <td style="padding: 8px 0; color: #4a5568;"><strong>DNP Automation:</strong></td>
+          <td style="padding: 8px 0; color: #2d3748;">${dnpStatus}</td>
+        </tr>
+     
+      </table>
+
+      <div style="text-align: center; margin-top: 25px;">
+        <p style="color: #38a169; font-weight: 600; margin: 0;">
+          ✅ Successfully executed at ${executedAt}
+        </p>
+      </div>
+    </div>
+
+  </div>
+</div>
+`;
+
+    // 6️⃣ PRINT HTML REPORT (for n8n email)
+    console.log(JSON.stringify({ emailBody }));
+
   } catch (err) {
-    console.error("❌ Fatal Error:", err.response?.data || err.message);
+    const errorMsg = err.response
+      ? `Status: ${err.response.status}, Data: ${JSON.stringify(err.response.data)}`
+      : err.message || err;
+
+    const emailBody = `
+<div style="font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7fa; padding: 30px 0; color: #333;">
+  <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.05); overflow: hidden; padding: 20px;">
+    <h3 style="color: #e53e3e;">❌ CRM Lead Automation Script FAILED</h3>
+    <p>${errorMsg}</p>
+  </div>
+</div>
+`;
+
+    console.log(JSON.stringify({ emailBody }));
+    process.exitCode = 1;
   }
 }
 
