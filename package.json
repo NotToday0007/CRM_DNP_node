@@ -1,4 +1,4 @@
-{
+{ "type": "module",
   "name": "crm_dnp_node",
   "version": "1.0.0",
   "description": "CRM DNP Automation API - run lead automation scripts via HTTP requests",

@@ -1,48 +1,37 @@
-const { execSync } = require("child_process");
-const express = require("express");
-const path = require("path");
-const fs = require("fs");
+import express from "express";
+import { exec } from "child_process";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Required for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 app.use(express.json());
 
-// Ensure lead_data.json exists
-const leadDataPath = path.join(__dirname, "lead_data.json");
-if (!fs.existsSync(leadDataPath)) {
-  fs.writeFileSync(leadDataPath, JSON.stringify({}, null, 2));
-}
-
-// Homepage
-app.get("/", (req, res) => {
-  res.send("🚀 CRM DNP Automation Server: POST /run { file: 'day1_createLead.js' }");
-});
-
-// Allowed scripts
-const ALLOWED = ["day1_createLead.js", "day2_3_checkLead.js", "day4_verifyLead.js"];
-
-// Run script endpoint
+// Route to trigger script
 app.post("/run", (req, res) => {
   const { file } = req.body;
+  const filePath = path.join(__dirname, file);
 
-  if (!file) return res.status(400).json({ error: "Missing file name in body." });
-  if (!ALLOWED.includes(file)) return res.status(400).json({ error: "File not allowed." });
+  console.log(`🚀 CRM DNP Automation Server: POST /run { file: '${file}' }`);
 
-  const scriptPath = path.join(__dirname, file);
-
-  try {
-    console.log(`🧩 Running script: ${scriptPath}`);
-    execSync(`node ${scriptPath}`, { stdio: "inherit" });
-    res.json({ success: true, message: `✅ Successfully ran ${file}` });
-  } catch (err) {
-    console.error("❌ Script error:", err);
-    res.status(500).json({
-      success: false,
-      message: `❌ Failed to run ${file}`,
-      error: err.message,
-    });
-  }
+  exec(`node ${filePath}`, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`❌ Error: ${error.message}`);
+      return res.status(500).json({ error: error.message });
+    }
+    if (stderr) {
+      console.error(`⚠️ Stderr: ${stderr}`);
+    }
+    console.log(`✅ Script Output:\n${stdout}`);
+    res.json({ message: "Script executed successfully", output: stdout });
+  });
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`⚡ Script runner active on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
+});
