@@ -1,7 +1,4 @@
-// ==============================
-// 📦 IMPORTS (ESM Style)
-// ==============================
-import { execSync } from "child_process";
+import { exec } from "child_process";
 import express from "express";
 import path from "path";
 import fs from "fs";
@@ -45,7 +42,7 @@ const ALLOWED = [
 ];
 
 // ==============================
-// ⚙️ Run Script Endpoint
+// ⚙️ Run Script Endpoint (capture stdout)
 // ==============================
 app.post("/run", (req, res) => {
   const { file } = req.body;
@@ -59,19 +56,35 @@ app.post("/run", (req, res) => {
   }
 
   const scriptPath = path.join(__dirname, file);
+  console.log(`🧩 Running script: ${scriptPath}`);
 
-  try {
-    console.log(`🧩 Running script: ${scriptPath}`);
-    execSync(`node "${scriptPath}"`, { stdio: "inherit" });
-    res.json({ success: true, message: `✅ Successfully ran ${file}` });
-  } catch (err) {
-    console.error("❌ Script error:", err);
-    res.status(500).json({
-      success: false,
-      message: `❌ Failed to run ${file}`,
-      error: err.message,
+  exec(`node "${scriptPath}"`, (error, stdout, stderr) => {
+    if (error) {
+      console.error("❌ Script error:", error);
+      return res.status(500).json({
+        success: false,
+        message: `❌ Failed to run ${file}`,
+        error: error.message,
+        stderr: stderr
+      });
+    }
+
+    if (stderr) console.warn("⚠️ Script stderr:", stderr);
+
+    let outputJSON;
+    try {
+      outputJSON = JSON.parse(stdout); // your script prints JSON
+    } catch (parseErr) {
+      console.warn("⚠️ Could not parse script stdout as JSON, returning raw output");
+      outputJSON = { rawOutput: stdout };
+    }
+
+    res.json({
+      success: true,
+      message: `✅ Successfully ran ${file}`,
+      output: outputJSON
     });
-  }
+  });
 });
 
 // ==============================
