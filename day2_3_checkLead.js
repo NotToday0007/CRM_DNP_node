@@ -1,7 +1,13 @@
-const fs = require("fs");
-const axios = require("axios");
-const path = require("path"); 
-// ==============================
+import fs from "fs";
+import axios from "axios";
+import path from "path";
+import { fileURLToPath } from "url";
+
+// Recreate __dirname and __filename (not built-in in ESM)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+
 // 🔐 CONFIG
 // ==============================
 const BASE_URL = "https://crm-api.shikho.dev/api/v1";
