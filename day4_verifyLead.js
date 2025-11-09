@@ -115,6 +115,9 @@ async function main() {
       : "N/A";
     const executedAt = formatDateTime(new Date());
 
+    // create clickable lead link
+    const leadUrl = `https://crm.shikho.dev/details/lead/${leadId}`;
+
     const emailBody = `
 <div style="font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7fa; padding: 30px 0; color: #333;">
   <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,0.05); overflow: hidden;">
@@ -126,8 +129,10 @@ async function main() {
     <div style="padding: 20px 30px;">
       <table style="width: 100%; border-collapse: collapse; font-size: 15px;">
         <tr>
-          <td style="padding: 8px 0; width: 45%; color: #4a5568;"><strong>Lead ID:</strong></td>
-          <td style="padding: 8px 0; color: #2d3748;">${leadId}</td>
+          <td style="padding: 8px 0; width: 45%; color: #4a5568;"><strong>Lead Link:</strong></td>
+          <td style="padding: 8px 0; color: #2d3748;">
+            <a href="${leadUrl}" style="color: #2b6cb0; text-decoration: none; font-weight: 600;">View Lead</a>
+          </td>
         </tr>
         <tr style="background-color: #f9fafc;">
           <td style="padding: 8px 0; color: #4a5568;"><strong>Name:</strong></td>
