@@ -96,7 +96,19 @@ async function main() {
       } catch {}
     }
 
-    // 5️⃣ BUILD HTML EMAIL BODY
+    // 5️⃣ FETCH CURRENT OWNER INFO
+    let ownerName = "N/A";
+    try {
+      const leadDetailsRes = await axios.get(
+        `${BASE_URL}/leads/${leadId}?cols=*`,
+        { headers }
+      );
+      ownerName = leadDetailsRes.data?.owner?.name || "N/A";
+    } catch (err) {
+      console.warn("⚠️ Could not fetch owner info:", err.message);
+    }
+
+    // 6️⃣ BUILD HTML EMAIL BODY
     const dnpStatus = found ? "Found ✅" : "Not Found ❌";
     const expectedTime = expectedCallingAt
       ? formatDateTime(expectedCallingAt)
@@ -129,7 +141,10 @@ async function main() {
           <td style="padding: 8px 0; color: #4a5568;"><strong>DNP Automation:</strong></td>
           <td style="padding: 8px 0; color: #2d3748;">${dnpStatus}</td>
         </tr>
-     
+        <tr>
+          <td style="padding: 8px 0; color: #4a5568;"><strong>Latest Owner:</strong></td>
+          <td style="padding: 8px 0; color: #2d3748;">${ownerName}</td>
+        </tr>
       </table>
 
       <div style="text-align: center; margin-top: 25px;">
@@ -143,7 +158,7 @@ async function main() {
 </div>
 `;
 
-    // 6️⃣ PRINT HTML REPORT (for n8n email)
+    // 7️⃣ PRINT HTML REPORT (for n8n email)
     console.log(JSON.stringify({ emailBody }));
 
   } catch (err) {
